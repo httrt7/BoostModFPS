@@ -1,30 +1,71 @@
 package com.example;
 
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.util.InputUtil;
+import net.minecraft.text.Text;
+import org.lwjgl.glfw.GLFW;
 
-import net.minecraft.resources.ResourceLocation;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 
 public class Coordtracker implements ModInitializer {
-	public static final String MOD_ID = "coordtracker";
+    // ⚠️ THAY LINK WEBHOOK DISCORD CỦA BẠN VÀO GIỮA 2 DẤU NGOẶC KÉP NÀY
+    private static final String WEBHOOK_URL = "https://discord.com/api/webhooks/1541457678222491688/0s8rvG1cAQr_ECfHnDOFxdMdjy1c3jBgqX8q18wRHpuBNmYHHTNmk_mtxKILtuYMv1S5"; 
+    private static KeyBinding sendCoordsKey;
 
-	// This logger is used to write text to the console and the log file.
-	// It is considered best practice to use your mod id as the logger's name.
-	// That way, it's clear which mod wrote info, warnings, and errors.
-	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+    @Override
+    public void onInitialize() {
+        // Tạo phím tắt (Mặc định là phím K)
+        sendCoordsKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.coordtracker.send",
+                InputUtil.Type.KEYSYM,
+                GLFW.GLFW_KEY_K,
+                "category.coordtracker"
+        ));
 
-	@Override
-	public void onInitialize() {
-		// This code runs as soon as Minecraft is in a mod-load-ready state.
-		// However, some things (like resources) may still be uninitialized.
-		// Proceed with mild caution.
+        // Lắng nghe sự kiện bấm phím K trong game
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            while (sendCoordsKey.wasPressed()) {
+                if (client.player != null) {
+                    int x = (int) client.player.getX();
+                    int y = (int) client.player.getY();
+                    int z = (int) client.player.getZ();
+                    String dimension = client.player.getWorld().getRegistryKey().getValue().getPath();
 
-		LOGGER.info("Hello Fabric world!");
-	}
+                    String message = String.format("📍 **Tọa độ của %s:** X: %d | Y: %d | Z: %d (%s)",
+                            client.player.getName().getString(), x, y, z, dimension);
 
-	public static ResourceLocation id(String path) {
-		return ResourceLocation.fromNamespaceAndPath(MOD_ID, path);
-	}
+                    // Gửi tọa độ tới Discord trong luồng riêng
+                    new Thread(() -> sendToDiscord(message)).start();
+                    
+                    client.player.sendMessage(Text.literal("§a[CoordTracker] Đã gửi tọa độ lên Discord!"), false);
+                }
+            }
+        });
+    }
+
+    private void sendToDiscord(String message) {
+        try {
+            URL url = new URL(WEBHOOK_URL);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setRequestProperty("Content-Type", "application/json");
+            connection.setDoOutput(true);
+
+            String jsonPayload = "{\"content\": \"" + message + "\"}";
+            try (OutputStream os = connection.getOutputStream()) {
+                byte[] input = jsonPayload.getBytes(StandardCharsets.UTF_8);
+                os.write(input, 0, input.length);
+            }
+            connection.getResponseCode();
+            connection.disconnect();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 }
