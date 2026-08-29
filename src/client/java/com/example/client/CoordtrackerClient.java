@@ -1,11 +1,11 @@
 package com.example.client;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.text.Text;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 import java.io.OutputStream;
@@ -15,31 +15,31 @@ import java.nio.charset.StandardCharsets;
 
 public class CoordtrackerClient implements ClientModInitializer {
     private static final String WEBHOOK_URL = "https://discord.com/api/webhooks/1541457678222491688/0s8rvG1cAQr_ECfHnDOFxdMdjy1c3jBgqX8q18wRHpuBNmYHHTNmk_mtxKILtuYMv1S5"; 
-    private static KeyBinding sendCoordsKey;
+    private static KeyMapping sendCoordsKey;
 
     @Override
     public void onInitializeClient() {
-        sendCoordsKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        sendCoordsKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
                 "key.coordtracker.send",
-                InputUtil.Type.KEYSYM,
+                InputConstants.Type.KEYSYM,
                 GLFW.GLFW_KEY_K,
                 "category.coordtracker"
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            while (sendCoordsKey.wasPressed()) {
-                if (client.player != null && client.world != null) {
+            while (sendCoordsKey.consumeClick()) {
+                if (client.player != null && client.level != null) {
                     int x = (int) client.player.getX();
                     int y = (int) client.player.getY();
                     int z = (int) client.player.getZ();
-                    String dimension = client.world.getRegistryKey().getValue().getPath();
+                    String dimension = client.level.dimension().location().getPath();
 
                     String message = String.format("📍 **Tọa độ của %s:** X: %d | Y: %d | Z: %d (%s)",
                             client.player.getName().getString(), x, y, z, dimension);
 
                     new Thread(() -> sendToDiscord(message)).start();
                     
-                    client.player.sendMessage(Text.literal("§a[CoordTracker] Đã gửi tọa độ lên Discord!"), false);
+                    client.player.sendSystemMessage(Component.literal("§a[CoordTracker] Đã gửi tọa độ lên Discord!"));
                 }
             }
         });
