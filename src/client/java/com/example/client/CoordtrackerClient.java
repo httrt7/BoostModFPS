@@ -39,7 +39,7 @@ public class CoordtrackerClient implements ClientModInitializer {
 
                     new Thread(() -> sendToDiscord(message)).start();
                     
-                    client.player.sendSystemMessage(Component.literal("§a[CoordTracker] Đã gửi tọa độ lên Discord!"));
+                    client.player.displayClientMessage(Component.literal("§a[CoordTracker] Đã gửi tọa độ lên Discord!"), false);
                 }
             }
         });
